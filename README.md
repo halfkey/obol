@@ -72,6 +72,12 @@ npx tsx examples/agent-client.ts
 
 Obol ships as an MCP server — any AI agent that supports the [Model Context Protocol](https://modelcontextprotocol.io) can discover and call Obol's tools natively.
 
+### Install from npm
+
+```bash
+npm install -g obol-mcp
+```
+
 ### Claude Desktop / Claude Code
 
 Add to your MCP config:
@@ -81,9 +87,25 @@ Add to your MCP config:
   "mcpServers": {
     "obol": {
       "command": "npx",
-      "args": ["tsx", "/path/to/obol/src/mcp.ts"],
+      "args": ["-y", "obol-mcp"],
       "env": {
         "OBOL_URL": "https://obol-production.up.railway.app"
+      }
+    }
+  }
+}
+```
+
+Or if developing locally:
+
+```json
+{
+  "mcpServers": {
+    "obol": {
+      "command": "npx",
+      "args": ["tsx", "/path/to/obol/src/mcp.ts"],
+      "env": {
+        "OBOL_URL": "http://localhost:3000"
       }
     }
   }

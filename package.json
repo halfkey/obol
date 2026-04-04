@@ -1,7 +1,7 @@
 {
-  "name": "obol",
+  "name": "obol-mcp",
   "version": "2.0.0",
-  "description": "Pay the ferryman. Solana agent gateway via x402.",
+  "description": "Pay the ferryman. Solana agent gateway via x402. MCP server for AI agents.",
   "main": "dist/server.js",
   "type": "module",
   "scripts": {
@@ -14,11 +14,17 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "mcp": "tsx src/mcp.ts"
+    "mcp": "tsx src/mcp.ts",
+    "prepublishOnly": "npm run build"
   },
   "bin": {
     "obol-mcp": "./dist/mcp.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "keywords": [
     "solana",
     "x402",
@@ -27,10 +33,19 @@
     "micropayments",
     "agent",
     "obol",
-    "mcp"
+    "mcp",
+    "model-context-protocol",
+    "ai-agent",
+    "usdc",
+    "defi"
   ],
   "author": "halfkey",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/halfkey/obol.git"
+  },
+  "homepage": "https://github.com/halfkey/obol",
   "dependencies": {
     "@fastify/cors": "^10.0.1",
     "@fastify/helmet": "^12.0.1",

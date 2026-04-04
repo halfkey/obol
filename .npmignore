@@ -1,0 +1,11 @@
+src/
+test/
+scripts/
+examples/
+.env*
+.github/
+vitest.config.ts
+tsconfig.json
+*.tsbuildinfo
+.eslintrc*
+.prettierrc*
