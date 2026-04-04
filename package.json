@@ -13,15 +13,29 @@
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "mcp": "tsx src/mcp.ts"
   },
-  "keywords": ["solana", "x402", "api", "gateway", "micropayments", "agent", "obol"],
+  "bin": {
+    "obol-mcp": "./dist/mcp.js"
+  },
+  "keywords": [
+    "solana",
+    "x402",
+    "api",
+    "gateway",
+    "micropayments",
+    "agent",
+    "obol",
+    "mcp"
+  ],
   "author": "halfkey",
   "license": "MIT",
   "dependencies": {
     "@fastify/cors": "^10.0.1",
     "@fastify/helmet": "^12.0.1",
     "@fastify/rate-limit": "^10.1.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@solana/spl-token": "^0.4.9",
     "@solana/web3.js": "^1.95.8",
     "@upstash/redis": "^1.35.6",

@@ -68,6 +68,52 @@ Run in discovery-only mode (no wallet needed):
 npx tsx examples/agent-client.ts
 ```
 
+## MCP Server
+
+Obol ships as an MCP server — any AI agent that supports the [Model Context Protocol](https://modelcontextprotocol.io) can discover and call Obol's tools natively.
+
+### Claude Desktop / Claude Code
+
+Add to your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "obol": {
+      "command": "npx",
+      "args": ["tsx", "/path/to/obol/src/mcp.ts"],
+      "env": {
+        "OBOL_URL": "https://obol-production.up.railway.app"
+      }
+    }
+  }
+}
+```
+
+### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `obol_wallet_overview` | SOL balance, token count, total value |
+| `obol_wallet_portfolio` | Full holdings with prices and breakdown |
+| `obol_wallet_activity` | Transaction history with categorization |
+| `obol_wallet_risk` | Multi-factor risk assessment |
+| `obol_wallet_pnl` | Token flow analysis and P&L |
+| `obol_token_price` | Real-time price via Jupiter |
+| `obol_token_metadata` | Name, symbol, supply, decimals |
+| `obol_swap_quote` | Jupiter swap quote with routing |
+| `obol_swap_execute` | Build swap transaction for signing |
+| `obol_defi_positions` | LSTs, LPs, lending positions |
+| `obol_lst_yields` | LST yield comparison |
+| `obol_health` | API health check (free) |
+| `obol_info` | Endpoint pricing and info (free) |
+
+### Run locally
+
+```bash
+npm run mcp
+```
+
 ## Stack
 
 - **Fastify 5** — high-performance HTTP
