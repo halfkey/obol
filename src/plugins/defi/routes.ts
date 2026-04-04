@@ -1,7 +1,18 @@
 import type { FastifyInstance } from 'fastify';
+import { PublicKey } from '@solana/web3.js';
 import { validateSolanaAddress } from '../../middleware/validation.js';
 import { config } from '../../config/env.js';
 import { cache } from '../../services/cache.js';
+
+/** Validate a string is a valid Solana address/mint */
+function isValidSolanaAddress(addr: string): boolean {
+  try {
+    new PublicKey(addr);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * DeFi plugin — all /api/v1/defi/* routes
@@ -38,6 +49,20 @@ export async function defiPlugin(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({
           error: 'Bad Request',
           message: 'Required query params: inputMint, outputMint, amount (in atomic units)',
+        });
+      }
+
+      if (!isValidSolanaAddress(query.inputMint) || !isValidSolanaAddress(query.outputMint)) {
+        return reply.code(400).send({
+          error: 'Bad Request',
+          message: 'Invalid mint address format',
+        });
+      }
+
+      if (!/^\d+$/.test(query.amount)) {
+        return reply.code(400).send({
+          error: 'Bad Request',
+          message: 'Amount must be a positive integer (atomic units)',
         });
       }
 
@@ -123,6 +148,27 @@ export async function defiPlugin(app: FastifyInstance): Promise<void> {
         return reply.code(400).send({
           error: 'Bad Request',
           message: 'Required body params: inputMint, outputMint, amount (atomic units), userPublicKey',
+        });
+      }
+
+      if (!isValidSolanaAddress(body.inputMint) || !isValidSolanaAddress(body.outputMint)) {
+        return reply.code(400).send({
+          error: 'Bad Request',
+          message: 'Invalid mint address format',
+        });
+      }
+
+      if (!isValidSolanaAddress(body.userPublicKey)) {
+        return reply.code(400).send({
+          error: 'Bad Request',
+          message: 'Invalid userPublicKey address format',
+        });
+      }
+
+      if (!/^\d+$/.test(body.amount)) {
+        return reply.code(400).send({
+          error: 'Bad Request',
+          message: 'Amount must be a positive integer (atomic units)',
         });
       }
 

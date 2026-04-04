@@ -270,10 +270,12 @@ export async function x402PaymentMiddleware(
 
     if (!destination || !amount) continue;
 
-    // For transferChecked, mint is in the instruction. For plain transfer,
-    // we need to check the destination account's owner matches our wallet.
-    // Since USDC uses transferChecked in practice, check mint first.
+    // For transferChecked, mint is in the instruction — reject if wrong mint.
+    // For plain transfer, mint is absent — we verify via the token account below.
     if (mint && mint !== usdcMint) continue;
+
+    // For plain transfers without mint field, we MUST verify via token account.
+    // The token account lookup below enforces mint == USDC as a hard requirement.
 
     // Resolve destination token account → check if owner is our merchant wallet
     // The destination in SPL transfer is the token account, not the wallet.
@@ -290,8 +292,9 @@ export async function x402PaymentMiddleware(
       const accountMint = tokenAccountInfo.info?.mint;
 
       // Verify: token account is owned by our wallet AND it's USDC
+      // CRITICAL: both checks are mandatory — if either is missing, reject
       if (owner !== recipientPubkey) continue;
-      if (accountMint && accountMint !== usdcMint) continue;
+      if (!accountMint || accountMint !== usdcMint) continue;
 
       verifiedAmount += BigInt(amount);
       verifiedSender = info.authority ?? info.source ?? fromAddress ?? 'unknown';

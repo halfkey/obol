@@ -128,9 +128,19 @@ export async function createApp(): Promise<FastifyInstance> {
   app.setErrorHandler((error: Error & { statusCode?: number }, _request, reply) => {
     app.log.error(error);
     const statusCode = error.statusCode ?? 500;
+
+    // In production, never leak internal error names or stack traces
+    if (config.server.isProduction) {
+      return reply.code(statusCode).send({
+        error: statusCode >= 500 ? 'Internal Server Error' : 'Error',
+        message: statusCode >= 500 ? 'An unexpected error occurred' : error.message,
+        statusCode,
+      });
+    }
+
     return reply.code(statusCode).send({
       error: error.name || 'InternalServerError',
-      message: config.server.isProduction ? 'Internal Server Error' : error.message,
+      message: error.message,
       statusCode,
     });
   });
