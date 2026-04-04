@@ -32,6 +32,24 @@ export const endpointPricing: Record<string, EndpointPrice> = {
     priceUSDC: 0.01,
     description: 'Token name, symbol, supply, holder count',
   },
+
+  // Phase 2: DeFi
+  '/api/v1/defi/swap/quote': {
+    priceUSDC: 0.005,
+    description: 'Jupiter swap quote with route planning',
+  },
+  '/api/v1/defi/positions/:address': {
+    priceUSDC: 0.10,
+    description: 'DeFi positions — LSTs, LPs, lending, yield',
+  },
+  '/api/v1/defi/lst/yields': {
+    priceUSDC: 0.02,
+    description: 'LST yield comparison across Solana liquid staking',
+  },
+  '/api/v1/wallet/:address/pnl': {
+    priceUSDC: 0.15,
+    description: 'Wallet P&L — token flows, current values, transaction analysis',
+  },
 };
 
 /** Paths that never require payment */
@@ -43,7 +61,7 @@ function normalizeToRoute(path: string): string {
   const cleanPath = path.split('?')[0] ?? path;
 
   // /api/v1/wallet/<address>/overview → /api/v1/wallet/:address/overview
-  const walletMatch = cleanPath.match(/^\/api\/v1\/wallet\/[^/]+\/(overview|portfolio|activity|risk)$/);
+  const walletMatch = cleanPath.match(/^\/api\/v1\/wallet\/[^/]+\/(overview|portfolio|activity|risk|pnl)$/);
   if (walletMatch) {
     return `/api/v1/wallet/:address/${walletMatch[1]}`;
   }
@@ -53,6 +71,14 @@ function normalizeToRoute(path: string): string {
   if (tokenMatch) {
     return `/api/v1/token/:mint/${tokenMatch[1]}`;
   }
+
+  // /api/v1/defi/positions/<address> → /api/v1/defi/positions/:address
+  const defiPositionsMatch = cleanPath.match(/^\/api\/v1\/defi\/positions\/[^/]+$/);
+  if (defiPositionsMatch) {
+    return '/api/v1/defi/positions/:address';
+  }
+
+  // /api/v1/defi/swap/quote and /api/v1/defi/lst/yields are static routes — no normalization needed
 
   return cleanPath;
 }

@@ -9,6 +9,7 @@ import { endpointPricing } from './config/pricing.js';
 // Plugins
 import { walletPlugin } from './plugins/wallet/routes.js';
 import { tokenPlugin } from './plugins/token/routes.js';
+import { defiPlugin } from './plugins/defi/routes.js';
 
 export async function createApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -113,6 +114,7 @@ export async function createApp(): Promise<FastifyInstance> {
   // ── Register Endpoint Plugins ──
   await app.register(walletPlugin);
   await app.register(tokenPlugin);
+  await app.register(defiPlugin);
 
   // ── 404 ──
   app.setNotFoundHandler((_request, reply) => {
