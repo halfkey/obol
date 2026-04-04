@@ -35,6 +35,10 @@ describe('Pricing', () => {
       expect(getEndpointPrice('/api/v1/defi/swap/quote')).toBe(0.005);
     });
 
+    it('returns correct price for swap execute', () => {
+      expect(getEndpointPrice('/api/v1/defi/swap/execute')).toBe(0.25);
+    });
+
     it('returns correct price for DeFi positions', () => {
       expect(getEndpointPrice('/api/v1/defi/positions/SomeAddress123')).toBe(0.10);
     });
@@ -99,8 +103,8 @@ describe('Pricing', () => {
   });
 
   describe('endpointPricing registry', () => {
-    it('has exactly 10 priced endpoints', () => {
-      expect(Object.keys(endpointPricing)).toHaveLength(10);
+    it('has exactly 11 priced endpoints', () => {
+      expect(Object.keys(endpointPricing)).toHaveLength(11);
     });
 
     it('all prices are positive numbers', () => {

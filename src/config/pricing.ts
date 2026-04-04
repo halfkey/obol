@@ -38,6 +38,10 @@ export const endpointPricing: Record<string, EndpointPrice> = {
     priceUSDC: 0.005,
     description: 'Jupiter swap quote with route planning',
   },
+  '/api/v1/defi/swap/execute': {
+    priceUSDC: 0.25,
+    description: 'Jupiter swap transaction builder — returns serialized tx for signing',
+  },
   '/api/v1/defi/positions/:address': {
     priceUSDC: 0.10,
     description: 'DeFi positions — LSTs, LPs, lending, yield',

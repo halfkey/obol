@@ -8,6 +8,7 @@ import { cache } from '../../services/cache.js';
  *
  * Endpoints:
  *   GET  /api/v1/defi/swap/quote       ($0.005) — Jupiter swap quote
+ *   POST /api/v1/defi/swap/execute     ($0.25)  — Jupiter swap transaction builder
  *   GET  /api/v1/defi/positions/:addr   ($0.10)  — DeFi positions aggregation
  *   GET  /api/v1/defi/lst/yields        ($0.02)  — LST yield comparison
  */
@@ -98,6 +99,114 @@ export async function defiPlugin(app: FastifyInstance): Promise<void> {
         return reply.code(500).send({
           error: 'Internal Server Error',
           message: 'Failed to fetch swap quote',
+        });
+      }
+    },
+  );
+
+  // ── Swap Execute (Jupiter v6) ──
+  app.post(
+    '/api/v1/defi/swap/execute',
+    rateConfig,
+    async (request, reply) => {
+      const body = request.body as {
+        inputMint?: string;
+        outputMint?: string;
+        amount?: string;
+        slippageBps?: string;
+        userPublicKey?: string;
+        priorityFee?: string;
+        wrapUnwrapSOL?: boolean;
+      };
+
+      if (!body.inputMint || !body.outputMint || !body.amount || !body.userPublicKey) {
+        return reply.code(400).send({
+          error: 'Bad Request',
+          message: 'Required body params: inputMint, outputMint, amount (atomic units), userPublicKey',
+        });
+      }
+
+      const slippageBps = body.slippageBps ?? '50';
+
+      try {
+        // Step 1: Get quote from Jupiter
+        const quoteParams = new URLSearchParams({
+          inputMint: body.inputMint,
+          outputMint: body.outputMint,
+          amount: body.amount,
+          slippageBps,
+        });
+
+        const quoteResponse = await fetch(`https://lite-api.jup.ag/swap/v1/quote?${quoteParams}`);
+        if (!quoteResponse.ok) {
+          const text = await quoteResponse.text();
+          return reply.code(quoteResponse.status).send({
+            error: 'Jupiter Quote Error',
+            message: text || 'Failed to get swap quote',
+          });
+        }
+
+        const quoteData = await quoteResponse.json() as JupiterQuoteResponse;
+
+        // Step 2: Build the swap transaction
+        const swapBody: Record<string, unknown> = {
+          quoteResponse: quoteData,
+          userPublicKey: body.userPublicKey,
+          wrapAndUnwrapSol: body.wrapUnwrapSOL ?? true,
+          dynamicComputeUnitLimit: true,
+          dynamicSlippage: true,
+        };
+
+        if (body.priorityFee) {
+          swapBody.prioritizationFeeLamports = Number(body.priorityFee);
+        } else {
+          // Auto priority fee
+          swapBody.prioritizationFeeLamports = 'auto';
+        }
+
+        const swapResponse = await fetch('https://lite-api.jup.ag/swap/v1/swap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(swapBody),
+        });
+
+        if (!swapResponse.ok) {
+          const text = await swapResponse.text();
+          return reply.code(swapResponse.status).send({
+            error: 'Jupiter Swap Error',
+            message: text || 'Failed to build swap transaction',
+          });
+        }
+
+        const swapData = await swapResponse.json() as JupiterSwapResponse;
+
+        const result: SwapExecuteResult = {
+          swapTransaction: swapData.swapTransaction,
+          lastValidBlockHeight: swapData.lastValidBlockHeight,
+          prioritizationFeeLamports: swapData.prioritizationFeeLamports ?? 0,
+          dynamicSlippageReport: swapData.dynamicSlippageReport ?? null,
+          quote: {
+            inputMint: quoteData.inputMint,
+            outputMint: quoteData.outputMint,
+            inAmount: quoteData.inAmount,
+            outAmount: quoteData.outAmount,
+            priceImpactPct: quoteData.priceImpactPct,
+          },
+          instructions: [
+            '1. Decode swapTransaction from base64',
+            '2. Deserialize as a VersionedTransaction',
+            '3. Sign with your wallet keypair',
+            '4. Send via sendRawTransaction or Obol RPC proxy (POST /api/v1/rpc with sendTransaction)',
+          ],
+          timestamp: new Date().toISOString(),
+        };
+
+        return reply.send({ success: true, payment: request.payment, data: result });
+      } catch (error) {
+        app.log.error({ error }, 'Swap execute failed');
+        return reply.code(500).send({
+          error: 'Internal Server Error',
+          message: 'Failed to build swap transaction',
         });
       }
     },
@@ -468,5 +577,36 @@ interface LstYieldComparison {
   yields: LstYield[];
   solPriceUSD: number;
   bestYield: LstYield | null;
+  timestamp: string;
+}
+
+interface JupiterSwapResponse {
+  swapTransaction: string; // base64 encoded VersionedTransaction
+  lastValidBlockHeight: number;
+  prioritizationFeeLamports?: number;
+  dynamicSlippageReport?: {
+    slippageBps: number;
+    otherAmount: string;
+    simulatedIncurredSlippageBps: number;
+  } | null;
+}
+
+interface SwapExecuteResult {
+  swapTransaction: string;
+  lastValidBlockHeight: number;
+  prioritizationFeeLamports: number;
+  dynamicSlippageReport: {
+    slippageBps: number;
+    otherAmount: string;
+    simulatedIncurredSlippageBps: number;
+  } | null;
+  quote: {
+    inputMint: string;
+    outputMint: string;
+    inAmount: string;
+    outAmount: string;
+    priceImpactPct: string;
+  };
+  instructions: string[];
   timestamp: string;
 }
