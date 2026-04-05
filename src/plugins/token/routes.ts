@@ -31,7 +31,7 @@ export async function tokenPlugin(app: FastifyInstance): Promise<void> {
       try {
         const cacheKey = `token-price:${mint}`;
         const cached = await cache.get<TokenPrice>(cacheKey);
-        if (cached) {
+        if (cached !== null) {
           return reply.send({ success: true, mint, payment: request.payment, data: cached });
         }
 
@@ -76,7 +76,7 @@ export async function tokenPlugin(app: FastifyInstance): Promise<void> {
       try {
         const cacheKey = `token-meta:${mint}`;
         const cached = await cache.get<TokenMetadata>(cacheKey);
-        if (cached) {
+        if (cached !== null) {
           return reply.send({ success: true, mint, payment: request.payment, data: cached });
         }
 

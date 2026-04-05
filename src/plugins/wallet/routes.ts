@@ -130,7 +130,7 @@ export async function walletPlugin(app: FastifyInstance): Promise<void> {
       try {
         const cacheKey = `wallet-pnl:${address}`;
         const cached = await cache.get<WalletPnL>(cacheKey);
-        if (cached) {
+        if (cached !== null) {
           return reply.send({ success: true, wallet: address, payment: request.payment, data: cached });
         }
 
@@ -201,26 +201,25 @@ export async function walletPlugin(app: FastifyInstance): Promise<void> {
           }
         }
 
-        // Step 4: Get current prices for all tokens in flows
+        // Step 4: Get current prices for all tokens in flows (parallel)
         const mintAddresses = Object.keys(tokenFlows).filter(m => m !== 'SOL');
-        let currentPrices: Record<string, number> = {};
+        const currentPrices: Record<string, number> = {};
 
-        if (mintAddresses.length > 0) {
-          const priceResponse = await fetch(
-            `https://lite-api.jup.ag/price/v3?ids=${mintAddresses.join(',')}`,
-          );
-          const priceData = await priceResponse.json() as Record<string, { usdPrice?: number }>;
-          for (const [mint, data] of Object.entries(priceData)) {
-            if (data?.usdPrice) currentPrices[mint] = data.usdPrice;
-          }
+        const solMintAddr = 'So11111111111111111111111111111111111111112';
+        const allMints = mintAddresses.length > 0
+          ? [...mintAddresses, solMintAddr]
+          : [solMintAddr];
+
+        const priceResponse = await fetch(
+          `https://lite-api.jup.ag/price/v3?ids=${allMints.join(',')}`,
+        );
+        const priceData = await priceResponse.json() as Record<string, { usdPrice?: number }>;
+        for (const [mint, data] of Object.entries(priceData)) {
+          if (data?.usdPrice) currentPrices[mint] = data.usdPrice;
         }
 
-        // Add SOL price
-        const solPriceResponse = await fetch(
-          'https://lite-api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112',
-        );
-        const solPriceData = await solPriceResponse.json() as Record<string, { usdPrice?: number }>;
-        const solPrice = solPriceData['So11111111111111111111111111111111111111112']?.usdPrice ?? 0;
+        // Map SOL price from its mint address
+        const solPrice = currentPrices[solMintAddr] ?? 0;
         currentPrices['SOL'] = solPrice;
 
         // Step 5: Compute P&L per token

@@ -158,7 +158,7 @@ class HeliusService {
   async getTokenAccounts(address: string): Promise<TokenAccount[]> {
     const cacheKey = `tokens:${address}`;
     const cached = await cache.get<TokenAccount[]>(cacheKey);
-    if (cached) return cached;
+    if (cached !== null) return cached;
 
     const pubkey = new PublicKey(address);
     const conn = this.getConnection();
@@ -220,7 +220,7 @@ class HeliusService {
 
     const cacheKey = `prices:${mints.sort().join(',')}`;
     const cached = await cache.get<Record<string, number>>(cacheKey);
-    if (cached) return new Map(Object.entries(cached));
+    if (cached !== null) return new Map(Object.entries(cached));
 
     try {
       const response = await fetch(`https://lite-api.jup.ag/price/v3?ids=${mints.join(',')}`);
@@ -263,7 +263,7 @@ class HeliusService {
   async getNFTs(address: string, limit = 50): Promise<NFT[]> {
     const cacheKey = `nfts:${address}:${limit}`;
     const cached = await cache.get<NFT[]>(cacheKey);
-    if (cached) return cached;
+    if (cached !== null) return cached;
 
     try {
       const result = await this.dasCall<{ items?: Array<Record<string, unknown>> }>('getAssetsByOwner', {
@@ -315,7 +315,7 @@ class HeliusService {
   async getWalletActivity(address: string, limit = 50): Promise<WalletActivity> {
     const cacheKey = `activity:${address}:${limit}`;
     const cached = await cache.get<WalletActivity>(cacheKey);
-    if (cached) return cached;
+    if (cached !== null) return cached;
 
     const pubkey = new PublicKey(address);
     const conn = this.getConnection();
@@ -372,7 +372,7 @@ class HeliusService {
   async getWalletOverview(address: string): Promise<WalletOverview> {
     const cacheKey = `overview:${address}`;
     const cached = await cache.get<WalletOverview>(cacheKey);
-    if (cached) return cached;
+    if (cached !== null) return cached;
 
     const [solBalance, tokens, nftCount, isActive, solPrice] = await Promise.all([
       this.getSOLBalance(address),
@@ -418,7 +418,7 @@ class HeliusService {
   async getWalletPortfolio(address: string): Promise<WalletPortfolio> {
     const cacheKey = `portfolio:${address}`;
     const cached = await cache.get<WalletPortfolio>(cacheKey);
-    if (cached) return cached;
+    if (cached !== null) return cached;
 
     const [solBalance, tokens, nfts, solPrice] = await Promise.all([
       this.getSOLBalance(address),
@@ -453,7 +453,7 @@ class HeliusService {
   async getWalletRisk(address: string): Promise<WalletRisk> {
     const cacheKey = `risk:${address}`;
     const cached = await cache.get<WalletRisk>(cacheKey);
-    if (cached) return cached;
+    if (cached !== null) return cached;
 
     const pubkey = new PublicKey(address);
     const conn = this.getConnection();

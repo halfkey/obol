@@ -1,18 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import { PublicKey } from '@solana/web3.js';
-import { validateSolanaAddress } from '../../middleware/validation.js';
+import { validateSolanaAddress, isValidSolanaAddress } from '../../middleware/validation.js';
 import { config } from '../../config/env.js';
 import { cache } from '../../services/cache.js';
-
-/** Validate a string is a valid Solana address/mint */
-function isValidSolanaAddress(addr: string): boolean {
-  try {
-    new PublicKey(addr);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * DeFi plugin — all /api/v1/defi/* routes
@@ -71,7 +60,7 @@ export async function defiPlugin(app: FastifyInstance): Promise<void> {
       try {
         const cacheKey = `swap-quote:${query.inputMint}:${query.outputMint}:${query.amount}:${slippageBps}`;
         const cached = await cache.get<SwapQuote>(cacheKey);
-        if (cached) {
+        if (cached !== null) {
           return reply.send({ success: true, payment: request.payment, data: cached });
         }
 
@@ -268,7 +257,7 @@ export async function defiPlugin(app: FastifyInstance): Promise<void> {
       try {
         const cacheKey = `defi-positions:${address}`;
         const cached = await cache.get<DefiPositions>(cacheKey);
-        if (cached) {
+        if (cached !== null) {
           return reply.send({ success: true, address, payment: request.payment, data: cached });
         }
 
@@ -316,7 +305,6 @@ export async function defiPlugin(app: FastifyInstance): Promise<void> {
         const lstPositions: LstPosition[] = [];
         const lpPositions: LpPosition[] = [];
         const lendingPositions: GenericPosition[] = [];
-        const otherDefi: GenericPosition[] = [];
 
         // Known LST mints
         const LST_MINTS: Record<string, string> = {
@@ -346,8 +334,9 @@ export async function defiPlugin(app: FastifyInstance): Promise<void> {
 
           if (amount === 0) continue;
 
-          const pricePerToken = item.token_info?.price_info?.price_per_token ?? 0;
-          const valueUSD = amount * pricePerToken;
+          const rawPrice = item.token_info?.price_info?.price_per_token ?? 0;
+          const pricePerToken = Number.isFinite(rawPrice) ? rawPrice : 0;
+          const valueUSD = Number.isFinite(amount * pricePerToken) ? amount * pricePerToken : 0;
 
           // Check if it's an LST
           if (LST_MINTS[mint]) {
@@ -414,14 +403,13 @@ export async function defiPlugin(app: FastifyInstance): Promise<void> {
             totalValueUSD: lendingPositions.reduce((s, p) => s + p.valueUSD, 0),
           },
           other: {
-            positions: otherDefi,
-            totalValueUSD: otherDefi.reduce((s, p) => s + p.valueUSD, 0),
+            positions: [],
+            totalValueUSD: 0,
           },
           totalDefiValueUSD:
             lstPositions.reduce((s, p) => s + p.valueUSD, 0) +
             lpPositions.reduce((s, p) => s + p.valueUSD, 0) +
-            lendingPositions.reduce((s, p) => s + p.valueUSD, 0) +
-            otherDefi.reduce((s, p) => s + p.valueUSD, 0),
+            lendingPositions.reduce((s, p) => s + p.valueUSD, 0),
           timestamp: new Date().toISOString(),
         };
 
@@ -446,7 +434,7 @@ export async function defiPlugin(app: FastifyInstance): Promise<void> {
       try {
         const cacheKey = 'lst-yields';
         const cached = await cache.get<LstYieldComparison>(cacheKey);
-        if (cached) {
+        if (cached !== null) {
           return reply.send({ success: true, payment: request.payment, data: cached });
         }
 

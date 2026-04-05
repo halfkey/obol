@@ -1,6 +1,16 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { PublicKey } from '@solana/web3.js';
 
+/** Check if a string is a valid Solana address (base58 public key) */
+export function isValidSolanaAddress(addr: string): boolean {
+  try {
+    new PublicKey(addr);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Validate :address param is a valid Solana public key */
 export async function validateSolanaAddress(
   request: FastifyRequest,
