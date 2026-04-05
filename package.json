@@ -1,6 +1,6 @@
 {
   "name": "obol-mcp",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Pay the ferryman. Solana agent gateway via x402. MCP server for AI agents.",
   "main": "dist/server.js",
   "type": "module",
