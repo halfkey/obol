@@ -55,7 +55,7 @@ export interface WalletPortfolio {
 
 export interface WalletTransaction {
   signature: string;
-  timestamp: number;
+  timestamp: string;
   type: string;
   status: 'success' | 'failed';
   fee: number;
@@ -218,25 +218,57 @@ class HeliusService {
   async getTokenPrices(mints: string[]): Promise<Map<string, number>> {
     if (mints.length === 0) return new Map();
 
-    const cacheKey = `prices:${mints.sort().join(',')}`;
+    // Deduplicate mints
+    const uniqueMints = [...new Set(mints)];
+
+    // Check cache first (use sorted for consistent key)
+    const cacheKey = `prices:${uniqueMints.sort().join(',')}`;
     const cached = await cache.get<Record<string, number>>(cacheKey);
     if (cached !== null) return new Map(Object.entries(cached));
 
-    try {
-      const response = await fetch(`https://lite-api.jup.ag/price/v3?ids=${mints.join(',')}`);
-      const data = await response.json() as Record<string, { usdPrice?: number }>;
-      const priceMap = new Map<string, number>();
+    const priceMap = new Map<string, number>();
 
-      for (const [mint, info] of Object.entries(data)) {
-        if (info?.usdPrice) priceMap.set(mint, info.usdPrice);
+    try {
+      // Jupiter API handles ~100 mints per request reliably
+      const BATCH_SIZE = 100;
+      const batches: string[][] = [];
+      for (let i = 0; i < uniqueMints.length; i += BATCH_SIZE) {
+        batches.push(uniqueMints.slice(i, i + BATCH_SIZE));
       }
 
-      await cache.set(cacheKey, Object.fromEntries(priceMap), 120);
-      return priceMap;
+      const batchResults = await Promise.all(
+        batches.map(async (batch) => {
+          try {
+            const response = await fetch(`https://lite-api.jup.ag/price/v3?ids=${batch.join(',')}`);
+            if (!response.ok) {
+              logger.warn({ status: response.status, batch: batch.length }, 'Jupiter batch price fetch failed');
+              return new Map<string, number>();
+            }
+            const data = await response.json() as Record<string, { usdPrice?: number }>;
+            const map = new Map<string, number>();
+            for (const [mint, info] of Object.entries(data)) {
+              if (info?.usdPrice && info.usdPrice > 0) map.set(mint, info.usdPrice);
+            }
+            return map;
+          } catch (err) {
+            logger.warn({ error: err, batch: batch.length }, 'Jupiter batch failed');
+            return new Map<string, number>();
+          }
+        }),
+      );
+
+      for (const batch of batchResults) {
+        for (const [k, v] of batch) priceMap.set(k, v);
+      }
+
+      if (priceMap.size > 0) {
+        await cache.set(cacheKey, Object.fromEntries(priceMap), 120);
+      }
     } catch (error) {
       logger.warn({ error }, 'Jupiter price fetch failed');
-      return new Map();
     }
+
+    return priceMap;
   }
 
   // ── NFTs ──
@@ -344,7 +376,7 @@ class HeliusService {
 
     const recentTransactions: WalletTransaction[] = results.map(({ sig, tx }) => ({
       signature: sig.signature,
-      timestamp: sig.blockTime ?? 0,
+      timestamp: sig.blockTime ? new Date(sig.blockTime * 1000).toISOString() : new Date(0).toISOString(),
       type: inferTxType(tx),
       status: sig.err ? 'failed' as const : 'success' as const,
       fee: tx?.meta?.fee ? tx.meta.fee / LAMPORTS_PER_SOL : 0,

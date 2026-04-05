@@ -54,9 +54,18 @@ const USDC_DECIMALS = 6;
 // In production, you'd maintain a dynamic watchlist.
 
 const WHALE_WATCHLIST: { address: string; label: string }[] = [
-  { address: '7rhxnLV8C73BKXRN4oPsbGMGjCdmkvLgLFi3Q36aJtHg', label: 'Whale Alpha' },
-  { address: 'FDKJvWkFJnPYMj79v8JGnBsqGPGbwCPCfYWSnEWBcSME', label: 'DeFi Degen' },
-  { address: 'CuieVDEDtLo7FypA9SbLM9saXFdb1dsshEkyErMqkRQq', label: 'Sanctum Whale' },
+  // Solana co-founder — staked SOL movements signal insider conviction
+  { address: '9QgXqrgdbVU8KcpfskqJpAXKzbaYQJecgMAruSWoXDkM', label: 'Toly (Yakovenko)' },
+  // toly.sol domain wallet — diversified token holdings, ~$1.3M
+  { address: '86xCnPeV69n6t3DnyGvkKobf9FdN2H9oiVDdaMpo2MMY', label: 'toly.sol' },
+  // Wintermute automated liquidity bot — market maker flows
+  { address: 'MfDuWeqSHEqTFVYZ7LoexgAK9dxk7cy4DFJWjWMGVWa', label: 'Wintermute' },
+  // FTX bankruptcy estate cold storage — $100M+ assets, systematic liquidations
+  { address: '9uyDy9VDBw4K7xoSkhmCAm8NAFCwu4pkF6JeHUCtVKcX', label: 'FTX Cold Storage' },
+  // FTX/Alameda staking — monthly unstaking creates predictable sell pressure
+  { address: 'H4yiPhdSsmSMJTznXzmZvdqWuhxDRzzkoQMEWXZ6agFZ', label: 'FTX/Alameda Staking' },
+  // Richlist #1 — 5.17M SOL (1.01% of supply), movements = macro signal
+  { address: 'MJKqp326RZCHnAAbew9MDdui3iCKWco7fsK9sVuZTX2', label: 'SOL Richlist #1' },
 ];
 
 // ── Types ──
@@ -79,30 +88,33 @@ interface PaymentRequired402 {
 interface WalletOverview {
   address: string;
   solBalance: number;
-  solValueUSD: number;
+  solBalanceUSD: number;
   tokenCount: number;
   totalValueUSD: number;
-  timestamp: string;
+  nftCount: number;
+  isActive: boolean;
+  topTokens: TokenHolding[];
 }
 
 interface TokenHolding {
   mint: string;
-  symbol: string;
-  name: string;
-  amount: number;
-  valueUSD: number;
-  pricePerToken: number;
-  percentOfPortfolio: number;
+  symbol?: string;
+  name?: string;
+  amount?: number;
+  uiAmount?: number;
+  valueUSD?: number;
+  priceUSD?: number;
+  percentOfPortfolio?: number;
 }
 
 interface WalletPortfolio {
   address: string;
   totalValueUSD: number;
   solBalance: number;
-  solValueUSD: number;
+  solBalanceUSD: number;
   tokens: TokenHolding[];
-  nftCount: number;
-  timestamp: string;
+  nfts?: unknown[];
+  breakdown?: { sol: number; tokens: number; nfts: number };
 }
 
 interface ActivityItem {
@@ -110,28 +122,31 @@ interface ActivityItem {
   type: string;
   description: string;
   timestamp: string;
+  status: string;
   fee: number;
 }
 
 interface WalletActivity {
   address: string;
-  transactions: ActivityItem[];
-  totalTransactions: number;
-  timestamp: string;
+  recentTransactions: ActivityItem[];
+  transactionCount: number;
+  firstTransaction?: string;
+  lastTransaction?: string;
 }
 
 interface RiskFactor {
-  name: string;
-  score: number;
+  type: string;
+  severity: 'low' | 'medium' | 'high';
   description: string;
+  impact: number;
 }
 
 interface WalletRisk {
   address: string;
-  overallScore: number;
+  riskScore: number;
   riskLevel: string;
   factors: RiskFactor[];
-  timestamp: string;
+  warnings: string[];
 }
 
 interface DefiPositions {
@@ -343,24 +358,27 @@ function generateReport(profiles: WhaleProfile[], stats: { totalSpent: number; c
     if (p.overview) {
       lines.push('');
       lines.push('  OVERVIEW');
-      lines.push(`    Total Value:   $${formatUSD(p.overview.totalValueUSD)}`);
-      lines.push(`    SOL Balance:   ${p.overview.solBalance.toFixed(2)} SOL ($${formatUSD(p.overview.solValueUSD)})`);
-      lines.push(`    Token Count:   ${p.overview.tokenCount}`);
+      lines.push(`    Total Value:   $${formatUSD(p.overview.totalValueUSD ?? 0)}`);
+      lines.push(`    SOL Balance:   ${(p.overview.solBalance ?? 0).toFixed(2)} SOL ($${formatUSD(p.overview.solBalanceUSD ?? 0)})`);
+      lines.push(`    Token Count:   ${p.overview.tokenCount ?? 0}`);
     }
 
     // Top Holdings
     if (p.portfolio?.tokens?.length) {
       lines.push('');
       lines.push('  TOP HOLDINGS');
-      const top = p.portfolio.tokens
-        .sort((a, b) => b.valueUSD - a.valueUSD)
+      const totalVal = p.portfolio.totalValueUSD || 1;
+      const top = [...p.portfolio.tokens]
+        .sort((a, b) => (b.valueUSD ?? 0) - (a.valueUSD ?? 0))
         .slice(0, 8);
       for (const t of top) {
-        const pct = t.percentOfPortfolio?.toFixed(1) ?? '?';
-        lines.push(`    ${(t.symbol || t.name || t.mint.slice(0, 8)).padEnd(12)} $${formatUSD(t.valueUSD).padStart(12)}  (${pct}%)`);
+        const val = t.valueUSD ?? 0;
+        const pct = val > 0 ? ((val / totalVal) * 100).toFixed(1) : '?';
+        lines.push(`    ${(t.symbol || t.name || t.mint?.slice(0, 8) || '???').padEnd(12)} $${formatUSD(val).padStart(12)}  (${pct}%)`);
       }
-      if (p.portfolio.nftCount > 0) {
-        lines.push(`    + ${p.portfolio.nftCount} NFTs`);
+      const nftCount = p.portfolio.nfts?.length ?? 0;
+      if (nftCount > 0) {
+        lines.push(`    + ${nftCount} NFTs`);
       }
     }
 
@@ -369,16 +387,16 @@ function generateReport(profiles: WhaleProfile[], stats: { totalSpent: number; c
       lines.push('');
       lines.push('  DEFI EXPOSURE');
       lines.push(`    Total DeFi:    $${formatUSD(p.defi.totalDefiValueUSD)}`);
-      if (p.defi.lst.totalValueUSD > 0) {
+      if (p.defi.lst?.totalValueUSD > 0) {
         lines.push(`    LSTs:          $${formatUSD(p.defi.lst.totalValueUSD)}`);
-        for (const pos of p.defi.lst.positions) {
-          lines.push(`      ${pos.name.padEnd(20)} ${pos.amount.toFixed(4).padStart(12)} ($${formatUSD(pos.valueUSD)})`);
+        for (const pos of p.defi.lst.positions ?? []) {
+          lines.push(`      ${(pos.name ?? '???').padEnd(20)} ${(pos.amount ?? 0).toFixed(4).padStart(12)} ($${formatUSD(pos.valueUSD ?? 0)})`);
         }
       }
-      if (p.defi.lp.totalValueUSD > 0) {
+      if (p.defi.lp?.totalValueUSD > 0) {
         lines.push(`    LP Positions:  $${formatUSD(p.defi.lp.totalValueUSD)}`);
       }
-      if (p.defi.lending.totalValueUSD > 0) {
+      if (p.defi.lending?.totalValueUSD > 0) {
         lines.push(`    Lending:       $${formatUSD(p.defi.lending.totalValueUSD)}`);
       }
     }
@@ -387,25 +405,35 @@ function generateReport(profiles: WhaleProfile[], stats: { totalSpent: number; c
     if (p.risk) {
       lines.push('');
       lines.push('  RISK ASSESSMENT');
-      lines.push(`    Overall:       ${p.risk.overallScore}/100 (${p.risk.riskLevel})`);
+      lines.push(`    Overall:       ${p.risk.riskScore ?? '?'}/100 (${p.risk.riskLevel ?? 'unknown'})`);
       if (p.risk.factors?.length) {
         for (const f of p.risk.factors.slice(0, 5)) {
-          lines.push(`    ${f.name.padEnd(18)} ${f.score}/100  ${f.description}`);
+          const label = f.type?.replace(/_/g, ' ') ?? 'unknown';
+          lines.push(`    ${label.padEnd(18)} +${f.impact ?? 0}pts  ${f.description ?? ''}`);
+        }
+      }
+      if (p.risk.warnings?.length) {
+        for (const w of p.risk.warnings) {
+          lines.push(`    ⚠ ${w}`);
         }
       }
     }
 
     // Recent Activity
-    if (p.activity?.transactions?.length) {
+    if (p.activity?.recentTransactions?.length) {
       lines.push('');
       lines.push('  RECENT ACTIVITY');
-      const recent = p.activity.transactions.slice(0, 5);
+      const recent = p.activity.recentTransactions.slice(0, 5);
       for (const tx of recent) {
-        const time = new Date(tx.timestamp).toLocaleString();
-        lines.push(`    [${tx.type?.padEnd(10) ?? 'unknown   '}] ${tx.description?.slice(0, 50) ?? tx.signature.slice(0, 20)} — ${time}`);
+        // Handle both ISO strings and epoch seconds
+        const ts = typeof tx.timestamp === 'number'
+          ? new Date(tx.timestamp < 1e12 ? tx.timestamp * 1000 : tx.timestamp)
+          : new Date(tx.timestamp);
+        const time = ts.toLocaleString();
+        lines.push(`    [${(tx.type ?? 'unknown').padEnd(10)}] ${tx.description?.slice(0, 50) ?? tx.signature?.slice(0, 20) ?? '???'} — ${time}`);
       }
-      if (p.activity.totalTransactions > 5) {
-        lines.push(`    ... and ${p.activity.totalTransactions - 5} more transactions`);
+      if (p.activity.transactionCount > 5) {
+        lines.push(`    ... and ${p.activity.transactionCount - 5} more transactions`);
       }
     }
 
@@ -433,7 +461,7 @@ function generateReport(profiles: WhaleProfile[], stats: { totalSpent: number; c
 
   lines.push(`  Combined portfolio value:  $${formatUSD(totalValue)}`);
   lines.push(`  Combined DeFi exposure:    $${formatUSD(totalDefi)}`);
-  lines.push(`  Highest risk wallet:       ${profiles.sort((a, b) => (b.risk?.overallScore ?? 0) - (a.risk?.overallScore ?? 0))[0]?.label ?? 'N/A'}`);
+  lines.push(`  Highest risk wallet:       ${[...profiles].sort((a, b) => (b.risk?.riskScore ?? 0) - (a.risk?.riskScore ?? 0))[0]?.label ?? 'N/A'}`);
   lines.push('');
   lines.push(`  Data cost: ${stats.callCount} API calls = $${stats.totalSpent.toFixed(4)} USDC`);
   lines.push(`  Powered by Obol (obol-mcp) — pay-per-use Solana data via x402`);
@@ -452,10 +480,14 @@ function detectSignals(profile: WhaleProfile): string[] {
   }
 
   // Heavy concentration
-  if (profile.portfolio?.tokens?.length) {
-    const top = profile.portfolio.tokens[0];
-    if (top && top.percentOfPortfolio > 50) {
-      signals.push(`[CONCENTRATION] ${top.symbol || top.name} is ${top.percentOfPortfolio.toFixed(0)}% of portfolio`);
+  if (profile.portfolio?.tokens?.length && profile.portfolio.totalValueUSD > 0) {
+    const sorted = [...profile.portfolio.tokens].sort((a, b) => (b.valueUSD ?? 0) - (a.valueUSD ?? 0));
+    const top = sorted[0];
+    if (top?.valueUSD) {
+      const pct = (top.valueUSD / profile.portfolio.totalValueUSD) * 100;
+      if (pct > 50) {
+        signals.push(`[CONCENTRATION] ${top.symbol || top.name} is ${pct.toFixed(0)}% of portfolio`);
+      }
     }
   }
 
@@ -473,13 +505,13 @@ function detectSignals(profile: WhaleProfile): string[] {
   }
 
   // High risk
-  if (profile.risk && profile.risk.overallScore > 70) {
-    signals.push(`[RISK] Score ${profile.risk.overallScore}/100 — ${profile.risk.riskLevel}`);
+  if (profile.risk && profile.risk.riskScore > 70) {
+    signals.push(`[RISK] Score ${profile.risk.riskScore}/100 — ${profile.risk.riskLevel}`);
   }
 
-  // Low risk (interesting for a whale)
-  if (profile.risk && profile.risk.overallScore < 30) {
-    signals.push(`[SAFE] Score ${profile.risk.overallScore}/100 — conservative whale`);
+  // Low risk (interesting for a whale with size)
+  if (profile.risk && profile.overview && profile.risk.riskScore < 30 && profile.overview.totalValueUSD > 10_000) {
+    signals.push(`[SAFE] Score ${profile.risk.riskScore}/100 — conservative whale`);
   }
 
   return signals;

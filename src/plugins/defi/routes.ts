@@ -282,7 +282,7 @@ export async function defiPlugin(app: FastifyInstance): Promise<void> {
             method: 'searchAssets',
             params: {
               ownerAddress: address,
-              displayOptions: { showFungible: true, showNativeBalance: true },
+              displayOptions: { showNativeBalance: true, showZeroBalance: false, showClosedAccounts: false },
             },
           }),
         });
