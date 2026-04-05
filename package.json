@@ -80,4 +80,5 @@
   "engines": {
     "node": ">=20"
   },
-  "mcp
+  "mcpName": "io.github.halfkey/obol"
+}
