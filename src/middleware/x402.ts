@@ -95,6 +95,22 @@ export async function x402PaymentMiddleware(
 
   if (!requiresPayment(url)) return;
 
+  // Internal API key bypass — for first-party agents (Styx, etc.)
+  const internalKey = config.payment.internalApiKey;
+  if (internalKey) {
+    const authHeader = request.headers['x-api-key'] as string | undefined;
+    if (authHeader === internalKey) {
+      request.payment = {
+        wallet: 'internal',
+        amount: 0,
+        currency: 'USDC',
+        verifiedAt: new Date().toISOString(),
+        mode: 'mock',
+      };
+      return;
+    }
+  }
+
   let price: number;
   try {
     price = getEndpointPrice(url);

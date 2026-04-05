@@ -16,6 +16,7 @@ const envSchema = z.object({
   // x402 Payments
   PAYMENT_MODE: z.enum(['mock', 'onchain']).default('mock'),
   PAYMENT_RECIPIENT_ADDRESS: z.string().min(32).max(64).optional(),
+  INTERNAL_API_KEY: z.string().optional(),
 
   // Upstash Redis
   UPSTASH_REDIS_REST_URL: z.string().url().optional(),
@@ -57,6 +58,7 @@ export const config = {
   payment: {
     mode: env.PAYMENT_MODE,
     recipientAddress: env.PAYMENT_RECIPIENT_ADDRESS ?? '',
+    internalApiKey: env.INTERNAL_API_KEY,
   },
   redis: {
     restUrl: env.UPSTASH_REDIS_REST_URL,
