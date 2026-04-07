@@ -1,7 +1,29 @@
 node_modules/
 dist/
 .env
-.env.*
+.env.local
+.env.development
+.env.production
+# Keep .env.example files tracked
+!.env.example
 *.log
 coverage/
 .DS_Store
+
+# MCP registry tokens
+.mcpregistry_*
+
+# Binaries
+*.exe
+
+# MCP server config (contains local paths)
+server.json
+
+# Vitest temp files
+vitest.config.ts.timestamp-*
+
+# Security audit (internal only)
+*_Security_Audit_*.txt
+
+# Styx state (runtime)
+agents/styx/styx-state.json
